@@ -6,14 +6,8 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
-sudo apt-get update
-sudo apt-get install iptables-persistent
-sudo apt-get install iptables
-
 # Enable IP forwarding
 echo 1 > /proc/sys/net/ipv4/ip_forward
-echo "net.ipv4.ip_forward = 1" | sudo tee -a /etc/sysctl.conf
-sudo sysctl -p
 
 # Flush existing rules
 iptables -F
@@ -30,6 +24,9 @@ iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 # Allow ssh
 iptables -A INPUT -p tcp --dport 22 -j ACCEPT
 
+# Allow ICMP (ping) traffic
+iptables -A INPUT -p icmp --icmp-type echo-request -j ACCEPT
+
 # Allow traffic from our local network to the internet
 iptables -A FORWARD -s 192.168.0.0/24 -j ACCEPT
 
@@ -39,8 +36,11 @@ iptables -A FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT
 # Setup NAT
 iptables -t nat -A POSTROUTING -s 192.168.0.0/24 -j MASQUERADE
 
-sudo sh -c 'iptables-save > /etc/iptables/rules.v4'
-sudo systemctl restart iptables.service
+# Make IP forwarding setting persistent
+echo "net.ipv4.ip_forward = 1" | sudo tee -a /etc/sysctl.conf
+
+# Load sysctl settings from the file to make sure they work
+sudo sysctl -p
 
 # Exit the script
 exit 0
