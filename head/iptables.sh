@@ -6,6 +6,9 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
+sudo apt update
+sudo apt install iptables-persistent iptables 
+
 # Enable IP forwarding
 echo 1 > /proc/sys/net/ipv4/ip_forward
 
