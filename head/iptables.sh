@@ -38,6 +38,9 @@ iptables -P FORWARD ACCEPT
 # Setup NAT for our local network
 iptables -t nat -A POSTROUTING -o wlan0 -s 192.168.0.0/24 -j MASQUERADE
 
+sudo sh -c 'iptables-save > /etc/iptables/rules.v4'
+sudo sh -c 'ip6tables-save > /etc/iptables/rules.v6'
+
 # Make IP forwarding setting persistent
 echo "net.ipv4.ip_forward = 1" | sudo tee -a /etc/sysctl.conf
 
