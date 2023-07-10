@@ -14,12 +14,40 @@ class common_config {
   }
 }
 
-node 'ubuntu-node-1' {
+node 'demo00' {
+  include common_config
+}
+
+node 'demo01' {
 
   include common_config
 }
 
-node 'ubuntu-node-2' {
+node 'demo02' {
+  include common_config
+}
+
+node 'demo03' {
+  include common_config
+}
+
+node 'demo04' {
+  include common_config
+}
+
+node 'demo05' {
+  include common_config
+}
+
+node 'demo06' {
+  include common_config
+}
+
+node 'demo07' {
+  include common_config
+}
+
+node 'demo08' {
   include common_config
 }
 
