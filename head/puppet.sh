@@ -1,0 +1,1 @@
+../compute/puppet.sh
