@@ -1,5 +1,7 @@
 #!/bin/bash
 
+#TODO eventually compute setup needs to exist too to account for /etc/hosts; maybe use puppet.sh format for unified script?
+
 # Check if the user is root
 if [[ $EUID -ne 0 ]]; then
     echo "This script must be run as root"
@@ -15,7 +17,7 @@ systemctl stop docker.service docker.socket
 cp dnsmasq.conf /etc/dnsmasq.conf
 cp rules.v4 /etc/iptables/rules.v4
 cp dhcpd.conf /etc/dhcp/dhcpd.conf
-cp site.pp /etc/puppet/manifests/site.pp
+cp site.pp /etc/puppetlabs/code/environments/production/manifests/
 
 sudo systemctl restart dnsmasq
 sudo systemctl restart iptables

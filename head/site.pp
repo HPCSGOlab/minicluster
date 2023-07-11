@@ -5,7 +5,7 @@ class common_config {
     comment    => 'Demo User',
     home       => '/home/demo',
     managehome => true,
-    password   => sha512crypt('tinytitan93', 'salt'),
+    password   => pw_hash('tinytitan93', 'SHA-512', 'mysalt'),
     groups     => ['sudo', 'users'],
   }
 

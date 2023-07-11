@@ -13,7 +13,9 @@ if [[ `hostname` =~ 'demo00' ]]; then
     sudo apt-get -y install puppetserver
     sudo systemctl start puppetserver
     sudo systemctl enable puppetserver
-    sudo sed -i '/\[server\]/a\ autosign = true' /etc/puppetlabs/puppet/puppet.conf
+    sudo sed -i '/\[server\]/a\autosign = true' /etc/puppetlabs/puppet/puppet.conf
+    sudo /opt/puppetlabs/bin/puppet module install puppetlabs-stdlib
+    sudo cp site.pp /etc/puppetlabs/code/environments/production/manifests/
     sudo systemctl restart puppetserver
 else
     sudo cp hosts /etc/	
