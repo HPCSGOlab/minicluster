@@ -1,6 +1,6 @@
 127.0.0.1	localhost
 
-192.168.0.10    demo00
+192.168.0.10    demo00 demo00.uncc.edu demo00.charlotte.edu
 192.168.0.11    demo01
 192.168.0.12    demo02
 192.168.0.13    demo03

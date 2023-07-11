@@ -3,7 +3,7 @@
 # https://www.puppet.com/docs/puppet/8/install_puppet.html
 
 DEB=puppet8-release-focal.deb
-SERVER=demo00
+SERVER=demo00.uncc.edu
 
 wget https://apt.puppet.com/${DEB}
 sudo dpkg -i ./${DEB}
