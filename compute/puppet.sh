@@ -14,14 +14,17 @@ if [[ `hostname` =~ 'demo00' ]]; then
     sudo apt-get -y install puppetserver
     sudo systemctl start puppetserver
     sudo systemctl enable puppetserver
-    sed -i '/\[server\]/a\ autosign = true' /etc/puppetlabs/puppet/puppet.conf
+    sudo sed -i '/\[server\]/a\ autosign = true' /etc/puppetlabs/puppet/puppet.conf
     sudo systemctl restart puppetserver 
 fi
 
 sudo apt-get -y install puppet-agent
 sudo /opt/puppetlabs/bin/puppet resource service puppet ensure=running enable=true
 source /etc/profile.d/puppet-agent.sh
-sudo -E puppet config set server ${SERVER} --section main
-sudo -E puppet ssl bootstrap
+PUPPET=`which puppet`
+sudo ${PUPPET} config set server ${SERVER} --section main
+sudo ${PUPPET} ssl bootstrap
 sleep 1
-puppet ssl bootstrap
+sudo ${PUPPET} ssl bootstrap
+
+rm -f ./${DEB}
