@@ -37,8 +37,10 @@ fi
 # does unminimize have a yes flag?
 yes | sudo unminimize
 
+systemctl disable docker.service docker.socket
 
 sudo cp hosts /etc/	
+
 
 DEB=puppet8-release-focal.deb
 SERVER=demo00.uncc.edu
@@ -50,7 +52,6 @@ sudo apt-get update
 if [[ `hostname` =~ 'demo00' ]]; then
     
     apt install iptables dnsmasq puppetserver -y
-    systemctl disable docker.service docker.socket
     systemctl stop docker.service docker.socket
 
     cp dnsmasq.conf /etc/dnsmasq.conf
