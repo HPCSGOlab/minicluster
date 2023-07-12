@@ -2,7 +2,8 @@
 # this script is based on puppet 8 docs for focal ubuntu (jetson jetpack as of july 11 2023); may need update as versions change
 # https://www.puppet.com/docs/puppet/8/install_puppet.html
 
-#!/bin/bash
+DEB=puppet8-release-focal.deb
+SERVER=demo00.uncc.edu
 
 # declare an associative array
 declare -A mac_host_map
@@ -40,10 +41,7 @@ yes | sudo unminimize
 systemctl disable docker.service docker.socket
 
 sudo cp hosts /etc/	
-
-
-DEB=puppet8-release-focal.deb
-SERVER=demo00.uncc.edu
+ssh-keyscan ${SERVER} >> ~/.ssh/known_hosts
 
 wget https://apt.puppet.com/${DEB}
 sudo dpkg -i ./${DEB}
