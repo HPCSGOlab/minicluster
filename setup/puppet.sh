@@ -53,9 +53,9 @@ if [[ `hostname` =~ 'demo00' ]]; then
     sudo systemctl stop docker.service docker.socket
 
     sudo cp dnsmasq.conf /etc/dnsmasq.conf
-	sudo cp rules.v4 /etc/iptables/rules.v4
-	sudo cp dhcpd.conf /etc/dhcp/dhcpd.conf
-	sudo cp site.pp /etc/puppetlabs/code/environments/production/manifests/
+    sudo cp rules.v4 /etc/iptables/rules.v4
+    sudo cp dhcpd.conf /etc/dhcp/dhcpd.conf
+    sudo cp site.pp /etc/puppetlabs/code/environments/production/manifests/
 
     sudo systemctl restart dnsmasq
     sudo systemctl restart iptables
