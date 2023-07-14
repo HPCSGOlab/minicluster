@@ -63,6 +63,7 @@ if [[ `hostname` =~ 'demo00' ]]; then
     sudo cp rules.v4 /etc/iptables/rules.v4
     sudo cp dhcpd.conf /etc/dhcp/dhcpd.conf
     sudo cp site.pp /etc/puppetlabs/code/environments/production/manifests/
+    sudo cp puppet.conf /etc/puppetlabs/puppet/puppet.conf
 
     sudo systemctl restart dnsmasq
     sudo systemctl restart iptables
