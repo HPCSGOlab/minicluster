@@ -57,7 +57,7 @@ if [[ `hostname` =~ 'demo00' ]]; then
 
     sudo apt install iptables dnsmasq puppetserver -y
     sudo systemctl stop docker.service docker.socket
-
+    # copy config files and then enable the daemons for reboot
     sudo cp dnsmasq.conf /etc/dnsmasq.conf
     sudo cp rules.v4 /etc/iptables/rules.v4
     sudo cp dhcpd.conf /etc/dhcp/dhcpd.conf
@@ -66,7 +66,10 @@ if [[ `hostname` =~ 'demo00' ]]; then
     sudo systemctl restart dnsmasq
     sudo systemctl restart iptables
     sudo systemctl restart isc-dhcp-server
-    sudo systemctl restart puppetmaster
+    sudo systemctl enable dnsmasq
+    sudo systemctl enable iptables
+    sudo systemctl enable isc-dhcp-server
+    sudo systemctl enable puppetserver
 
     # Enable IP forwarding
     sudo bash -c 'echo 1 > /proc/sys/net/ipv4/ip_forward'
@@ -78,14 +81,11 @@ if [[ `hostname` =~ 'demo00' ]]; then
     sudo sysctl -p
     
     # configure puppet
-    sudo systemctl start puppetserver
-    sudo systemctl enable puppetserver
     sudo sed -i '/\[server\]/a\autosign = true' /etc/puppetlabs/puppet/puppet.conf
     sudo /opt/puppetlabs/bin/puppet module install puppetlabs-stdlib
-    sudo cp site.pp /etc/puppetlabs/code/environments/production/manifests/
-
     sudo `which puppet` module install puppetlabs-sshkeys_core
     sudo `which puppet` module install puppetlabs-stdlib
+    
     puppetkeys=/etc/puppetlabs/code/environments/production/modules/demokeys/files/
     sudo mkdir -p ${puppetkeys}
     keyloc=`realpath ~/.ssh/demo_ed25519`
@@ -108,4 +108,8 @@ sudo ${PUPPET} ssl bootstrap
 sleep 1
 sudo ${PUPPET} ssl bootstrap
 
+sudo /opt/puppetlabs/bin/puppet agent -t
+
 rm -f ./${DEB}
+
+
