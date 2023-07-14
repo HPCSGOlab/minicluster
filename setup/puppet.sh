@@ -78,6 +78,9 @@ if [[ `hostname` =~ 'demo00' ]]; then
     sudo sed -i '/\[server\]/a\autosign = true' /etc/puppetlabs/puppet/puppet.conf
     sudo /opt/puppetlabs/bin/puppet module install puppetlabs-stdlib
     sudo cp site.pp /etc/puppetlabs/code/environments/production/manifests/
+
+    sudo `which puppet` module install puppetlabs-sshkeys_core
+    sudo `which puppet` module install puppetlabs-stdlib
     sudo systemctl restart puppetserver
 fi
 

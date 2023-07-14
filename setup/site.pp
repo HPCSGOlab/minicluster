@@ -1,5 +1,10 @@
 class common_config {
 
+  group { 'demo':
+    ensure => 'present',
+    gid    => '1001',
+  }
+
   user { 'demo':
     ensure     => 'present',
     comment    => 'Demo User',
@@ -8,10 +13,36 @@ class common_config {
     shell => "/bin/bash",
     password   => pw_hash('tinytitan93', 'SHA-512', 'mysalt'),
     groups     => ['demo', 'adm', 'cdrom', 'sudo', 'audio', 'dip', 'video', 'plugdev', 'render', 'i2c', 'lpadmin', 'gdm', 'sambashare', 'weston-launch', 'gpio'],
+    require    => Group['demo']
   }
 
   package { ['git', 'build-essential', 'libopenmpi-dev', 'libgl1-mesa-dev', 'python3', 'python3-pip', 'python3-dev']:
     ensure => 'installed',
+  }
+
+  ssh_authorized_key { 't.allen@uncc.edu':
+    ensure => present,
+    user   => 'demo',
+    type   => 'ssh-ed25519',
+    key    => 'AAAAC3NzaC1lZDI1NTE5AAAAIAFxXa8PQ8GneMqIsy/mzEBvUBXD28xWit/uz7Q/0YSN',
+    require => User['demo'],
+  }
+
+  file { '/home/demo/.ssh/id_ed25519':
+    ensure => 'file',
+    source => 'file:///home/demo/.ssh/id_ed25519',
+    owner  => 'demo',
+    group  => 'demo',
+    mode   => '0600',
+    require => User['demo'],
+  }
+  file { '/home/demo/.ssh/id_ed25519.pub':
+    ensure => 'file',
+    source => 'file:///home/demo/.ssh/id_ed25519.pub',
+    owner  => 'demo',
+    group  => 'demo',
+    mode   => '0644',
+    require => User['demo'],
   }
 }
 
