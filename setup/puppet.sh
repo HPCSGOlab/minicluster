@@ -80,6 +80,12 @@ if [[ `hostname` =~ 'demo00' ]]; then
 
     sudo `which puppet` module install puppetlabs-sshkeys_core
     sudo `which puppet` module install puppetlabs-stdlib
+    puppetkeys=/etc/puppetlabs/code/environments/production/modules/demokeys/files/
+    sudo mkdir -p ${puppetkeys}
+    keyloc=`realpath ~/.ssh/demo_ed25519`
+    ssh-keygen -t ed25519 -C "t.allen@uncc.edu" -f ${keyloc}  -N ""
+    sudo mv ${keyloc} ${puppetkeys}/id_ed25519
+    sudo mv ${keyloc}.pub ${puppetkeys}/id_ed25519.pub
     sudo systemctl restart puppetserver
 else
     #disable wifi on compute nodes
