@@ -29,6 +29,7 @@ new_hostname="${mac_host_map[$mac_addr]}"
 
 if [ -z "$new_hostname" ]; then
   echo "No hostname found for MAC $mac_addr"
+  exit 1
 else
   echo "Setting hostname to $new_hostname for MAC $mac_addr"
   echo "You may be asked for your password for sudo command:"
@@ -40,6 +41,7 @@ yes | sudo unminimize
 
 sudo systemctl disable docker.service docker.socket
 
+# this is just a stopgap; later hosts will be populated by puppet if changes have happened
 sudo cp hosts /etc/	
 ssh-keyscan ${SERVER} >> ~/.ssh/known_hosts
 
@@ -49,6 +51,10 @@ sudo apt-get update
 
 if [[ `hostname` =~ 'demo00' ]]; then
     
+    sudo nmcli connection modify "Wired connection 1" ipv4.method manual ipv4.addresses "192.168.0.10/24"
+    sudo nmcli connection down "Wired connection 1"
+    sudo nmcli connection up "Wired connection 1"
+
     sudo apt install iptables dnsmasq puppetserver -y
     sudo systemctl stop docker.service docker.socket
 
