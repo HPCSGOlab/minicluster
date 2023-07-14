@@ -2,7 +2,6 @@ class common_config {
 
   group { 'demo':
     ensure => 'present',
-    gid    => '1001',
   }
 
   user { 'demo':
@@ -30,7 +29,7 @@ class common_config {
 
   file { '/home/demo/.ssh/id_ed25519':
     ensure => 'file',
-    source => 'file:///home/demo/.ssh/id_ed25519',
+    source => 'puppet:///modules/demokeys/id_ed25519',
     owner  => 'demo',
     group  => 'demo',
     mode   => '0600',
@@ -38,11 +37,27 @@ class common_config {
   }
   file { '/home/demo/.ssh/id_ed25519.pub':
     ensure => 'file',
-    source => 'file:///home/demo/.ssh/id_ed25519.pub',
+    source => 'puppet:///modules/demokeys/id_ed25519.pub',
     owner  => 'demo',
     group  => 'demo',
     mode   => '0644',
     require => User['demo'],
+  }
+
+  $nodes = ['0', '1', '2', '3', '4', '5', '6', '7', '8']
+
+  $nodes.each |String $node| {
+    $hostname = "demo0${node}"
+    $ip_address = "192.168.0.1${node}"
+    $aliases = ["${hostname}.uncc.edu", "${hostname}.charlotte.edu"]
+
+    host { $hostname:
+      ip           => $ip_address,
+      host_aliases => $aliases,
+      ensure       => present,
+      comment      => "This is node ${hostname}",
+      provider     => 'parsed',
+    }
   }
 }
 
