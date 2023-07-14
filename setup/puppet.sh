@@ -81,6 +81,9 @@ if [[ `hostname` =~ 'demo00' ]]; then
     sudo `which puppet` module install puppetlabs-sshkeys_core
     sudo `which puppet` module install puppetlabs-stdlib
     sudo systemctl restart puppetserver
+else
+    #disable wifi on compute nodes
+    sudo nmcli radio wifi off
 fi
 
 
