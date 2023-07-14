@@ -30,11 +30,11 @@ for node in "${nodes[@]}"; do
         continue
       fi
 
-      # Attempt to connect, run the puppet command and then run the echo command.
-      yes | ssh -o StrictHostKeyChecking=no $node "sudo /opt/puppetlabs/bin/puppet agent -t && ssh -o StrictHostKeyChecking=no $other_node \"$command from $node to $other_node\""
+      # Attempt to connect and then run the echo command.
+      yes | ssh -o StrictHostKeyChecking=no $node ssh -o StrictHostKeyChecking=no $other_node "$command from $node to $other_node"
 
       # Bootstrap the reverse connection. Node will SSH back to the originating node.
-      yes | ssh -o StrictHostKeyChecking=no $node ssh -o StrictHostKeyChecking=no $other_node "sudo /opt/puppetlabs/bin/puppet agent -t && ssh -o StrictHostKeyChecking=no $node \"$command from $other_node to $node\""
+      yes | ssh -o StrictHostKeyChecking=no $node ssh -o StrictHostKeyChecking=no $other_node ssh -o StrictHostKeyChecking=no $node "$command from $other_node to $node"
     fi
   done
 done
