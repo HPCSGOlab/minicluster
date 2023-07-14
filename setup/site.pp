@@ -1,3 +1,6 @@
+# Include the sudo class.
+include sudo
+
 class common_config {
 
   group { 'demo':
@@ -59,6 +62,15 @@ class common_config {
       provider     => 'parsed',
     }
   }
+
+
+  #Set up passwordless sudo for the demo user.
+  sudo::conf { 'demo':
+    content => 'demo ALL=(ALL) NOPASSWD:ALL',
+    require => User['demo'],
+  }
+
+
 }
 
 node 'demo00', 'demo00.charlotte.edu', 'demo00.uncc.edu' {

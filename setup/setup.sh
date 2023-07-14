@@ -4,6 +4,7 @@
 
 DEB=puppet8-release-focal.deb
 SERVER=demo00.uncc.edu
+PUPPETBIN=/opt/puppetlabs/bin/puppet
 
 # declare an associative array
 declare -A mac_host_map
@@ -82,9 +83,10 @@ if [[ `hostname` =~ 'demo00' ]]; then
     
     # configure puppet
     sudo sed -i '/\[server\]/a\autosign = true' /etc/puppetlabs/puppet/puppet.conf
-    sudo /opt/puppetlabs/bin/puppet module install puppetlabs-stdlib
-    sudo `which puppet` module install puppetlabs-sshkeys_core
-    sudo `which puppet` module install puppetlabs-stdlib
+    sudo  ${PUPPETBIN} module install puppetlabs-stdlib
+    sudo ${PUPPETBIN} module install puppetlabs-sshkeys_core
+    sudo ${PUPPETBIN} module install puppetlabs-stdlib
+    sudo ${PUPPETBIN} module install saz-sudo
     
     puppetkeys=/etc/puppetlabs/code/environments/production/modules/demokeys/files/
     sudo mkdir -p ${puppetkeys}
@@ -102,11 +104,10 @@ fi
 sudo apt-get -y install puppet-agent
 sudo /opt/puppetlabs/bin/puppet resource service puppet ensure=running enable=true
 source /etc/profile.d/puppet-agent.sh
-PUPPET=`which puppet`
-sudo ${PUPPET} config set server ${SERVER} --section main
-sudo ${PUPPET} ssl bootstrap
+sudo ${PUPPETBIN} config set server ${SERVER} --section main
+sudo ${PUPPETBIN} ssl bootstrap
 sleep 1
-sudo ${PUPPET} ssl bootstrap
+sudo ${PUPPETBIN} ssl bootstrap
 
 sudo /opt/puppetlabs/bin/puppet agent -t
 
