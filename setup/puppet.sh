@@ -38,7 +38,7 @@ fi
 # does unminimize have a yes flag?
 yes | sudo unminimize
 
-systemctl disable docker.service docker.socket
+sudo systemctl disable docker.service docker.socket
 
 sudo cp hosts /etc/	
 ssh-keyscan ${SERVER} >> ~/.ssh/known_hosts
