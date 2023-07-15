@@ -18,7 +18,7 @@ class common_config {
     require    => Group['demo']
   }
 
-  package { ['git', 'build-essential', 'libopenmpi-dev', 'libgl1-mesa-dev', 'python3', 'python3-pip', 'python3-dev', 'libglew-dev', 'glew-utils']:
+  package { ['git', 'build-essential', 'libopenmpi-dev', 'libgl1-mesa-dev', 'python3', 'python3-pip', 'python3-dev', 'libglew-dev', 'glew-utils', 'htop']:
     ensure => 'installed',
   }
 

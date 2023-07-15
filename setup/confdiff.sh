@@ -9,6 +9,8 @@ files=(
     ["/etc/puppetlabs/puppet/puppet.conf"]="puppet.conf"
     ["/etc/iptables/rules.v4"]="rules.v4"
     ["/etc/hosts"]="hosts"
+    ["/etc/default/puppetserver"]="puppetserver"
+    ["/etc/puppetlabs/puppetserver/conf.d/puppetserver.conf"]="puppetserver.conf"
 )
 
 # Get the directory the script is running from.
@@ -19,7 +21,8 @@ for filePath in "${!files[@]}"; do
     fileName=${files[$filePath]}
     if ! diff -q "$filePath" "$scriptDir/$fileName" > /dev/null 2>&1; then
         echo "Differences detected in $fileName, updating backup..."
-        cp "$filePath" "$scriptDir/$fileName"
+        sudo cp "$filePath" "$scriptDir/$fileName"
+	sudo chown $(whoami):$(id -gn) "${scriptDir}/${fileName}"
     fi
 done
 
