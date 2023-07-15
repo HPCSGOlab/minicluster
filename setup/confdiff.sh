@@ -19,7 +19,7 @@ scriptDir=$(dirname "$(readlink -f "$0")")
 # Check each file.
 for filePath in "${!files[@]}"; do
     fileName=${files[$filePath]}
-    if ! diff -q "$filePath" "$scriptDir/$fileName" > /dev/null 2>&1; then
+    if ! sudo diff -q "$filePath" "$scriptDir/$fileName" > /dev/null 2>&1; then
         echo "Differences detected in $fileName, updating backup..."
         sudo cp "$filePath" "$scriptDir/$fileName"
 	sudo chown $(whoami):$(id -gn) "${scriptDir}/${fileName}"
