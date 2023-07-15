@@ -18,7 +18,7 @@ class common_config {
     require    => Group['demo']
   }
 
-  package { ['git', 'build-essential', 'libopenmpi-dev', 'libgl1-mesa-dev', 'python3', 'python3-pip', 'python3-dev']:
+  package { ['git', 'build-essential', 'libopenmpi-dev', 'libgl1-mesa-dev', 'python3', 'python3-pip', 'python3-dev', 'libglew-dev', 'glew-utils']:
     ensure => 'installed',
   }
 
@@ -75,6 +75,10 @@ class common_config {
 
 node 'demo00', 'demo00.charlotte.edu', 'demo00.uncc.edu' {
   include common_config
+  #Set up passwordless sudo for the demo user.
+  sudo::conf { 'tallen':
+    content => 'tallen ALL=(ALL) NOPASSWD:ALL',
+  }
 }
 
 node 'demo01', 'demo01.charlotte.edu', 'demo01.uncc.edu' {
