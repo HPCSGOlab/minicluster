@@ -45,6 +45,8 @@ sudo systemctl disable docker.service docker.socket
 # this is just a stopgap; later hosts will be populated by puppet if changes have happened
 sudo cp hosts /etc/	
 ssh-keyscan ${SERVER} >> ~/.ssh/known_hosts
+# turns off power saving mode that causes issues with remote access sometimes
+sudo cp default-wifi-powersave-on.conf /etc/NetworkManager/conf.d/default-wifi-powersave-on.conf
 
 wget https://apt.puppet.com/${DEB}
 sudo dpkg -i ./${DEB}
@@ -99,6 +101,8 @@ if [[ `hostname` =~ 'demo00' ]]; then
 else
     #disable wifi on compute nodes
     sudo nmcli radio wifi off
+    sudo systemctl set-default multi-user.target  # set default run level to multi-user
+    sudo systemctl isolate multi-user.target     # set current run level to multi-user
 fi
 
 
@@ -114,4 +118,4 @@ sudo /opt/puppetlabs/bin/puppet agent -t
 
 rm -f ./${DEB}
 
-
+sudo reboot

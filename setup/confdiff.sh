@@ -11,6 +11,7 @@ files=(
     ["/etc/hosts"]="hosts"
     ["/etc/default/puppetserver"]="puppetserver"
     ["/etc/puppetlabs/puppetserver/conf.d/puppetserver.conf"]="puppetserver.conf"
+    ["/etc/NetworkManager/conf.d/default-wifi-powersave-on.conf"]="default-wifi-powersave-on.conf"
 )
 
 # Get the directory the script is running from.
