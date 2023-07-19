@@ -43,7 +43,10 @@ yes | sudo unminimize
 sudo systemctl disable docker.service docker.socket
 
 # this is just a stopgap; later hosts will be populated by puppet if changes have happened
-sudo cp hosts /etc/	
+sudo cp hosts /etc/
+# if the original account is not demo these fingerprints will need to be re-established
+mkdir -p ~/.ssh/
+chmod 700 ~/.ssh/
 ssh-keyscan ${SERVER} >> ~/.ssh/known_hosts
 # turns off power saving mode that causes issues with remote access sometimes
 sudo cp default-wifi-powersave-on.conf /etc/NetworkManager/conf.d/default-wifi-powersave-on.conf
