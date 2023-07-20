@@ -119,6 +119,8 @@ sudo ${PUPPETBIN} ssl bootstrap
 
 sudo /opt/puppetlabs/bin/puppet agent -t
 
+sudo blink1-tool --add_udev_rules
+
 rm -f ./${DEB}
 
 sudo reboot
