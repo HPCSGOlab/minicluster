@@ -10,7 +10,7 @@ for node in "${nodes[@]}"; do
     # Ping the node to check if it's online
     if ping -c 1 -W 1 "$node" >/dev/null; then
         echo "$node is up"
-        ssh -o ConnectTimeout=5 "$node" "/opt/puppetlabs/bin/puppet agent -t"
+        ssh -o ConnectTimeout=5 "$node" "sudo /opt/puppetlabs/bin/puppet agent -t"
     else
         echo "$node is down"
     fi
