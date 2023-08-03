@@ -11,7 +11,7 @@ twitter_username: jekyllrb
 github_username:  nmcassa 
 
 # Build settings
-theme: just-the-docs 
+remote_theme: just-the-docs 
 plugins:
   - jekyll-feed
 
