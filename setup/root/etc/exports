@@ -1,0 +1,1 @@
+/ *(async,rw,no_root_squash,no_all_squash,no_subtree_check,insecure,anonuid=1000,anongid=1000)
