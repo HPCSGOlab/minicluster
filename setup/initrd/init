@@ -1,0 +1,636 @@
+#!/bin/bash
+
+# SPDX-FileCopyrightText: Copyright (c) 2014-2024, NVIDIA CORPORATION. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#  * Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+#  * Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+#  * Neither the name of NVIDIA CORPORATION nor the names of its
+#    contributors may be used to endorse or promote products derived
+#    from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
+# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+# PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+# EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+# PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+# OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+initrd_dir=/mnt/initrd;
+dhclient_flag="true";
+count=0;
+overlayfs_enabled=0
+
+overlayfs_check() {
+	local efivar_dir="/sys/firmware/efi/efivars"
+	local prefix="L4TOverlayFsMode"
+	local uuid="360a04b9-3fe6-42c8-9fad-d9bf459c4770"
+	local varname="${prefix}-${uuid}"
+
+	if [ ! -d "${efivar_dir}" ]; then
+		echo "Overlayfs is disabled due to missing dir ${efivar_dir}..." > /dev/kmsg
+		overlayfs_enabled=0
+		return
+	fi
+
+	echo "Checking overlayfs setting..." > /dev/kmsg
+	# mount efivar to check overlayfs configuration in EFI runtime variable
+	mount -t efivarfs efivarfs "${efivar_dir}"
+	if [ $? -ne 0 ]; then
+		# With PREEMPT_RT enabled EFI runtime service is disabled by default.
+		# In this case we should continue the boot and don't enable overlayfs.
+		if [ $(grep -c 'PREEMPT_RT' /proc/version) -eq 1 ]; then
+			echo "WARNING: efivars is not available due to PREEMPT_RT. " > /dev/kmsg
+			overlayfs_enabled=0
+		else
+			echo "ERROR: mounting efivars fail..." > /dev/kmsg;
+			exec /bin/bash;
+		fi
+	elif [ -f "${efivar_dir}/${varname}" ]; then
+		local val=$(xxd -ps "${efivar_dir}/${varname}")
+		if [ "${val}" = "0700000001000000" ]; then
+			overlayfs_enabled=1
+		fi
+	fi
+
+	if [ "${overlayfs_enabled}" -eq 1 ]; then
+		echo "Overlayfs is enabled..." > /dev/kmsg
+	else
+		echo "Overlayfs is disabled..." > /dev/kmsg
+	fi
+}
+
+overlayfs_premount() {
+	echo "Pre-mounting file system for overlayfs..." > /dev/kmsg
+	mkdir /lower /upper
+	if [ $? -ne 0 ]; then
+		echo "ERROR: creating overlayfs dirs fail..." > /dev/kmsg;
+		exec /bin/bash;
+	fi
+	mount -t tmpfs tmpfs /upper
+	if [ $? -ne 0 ]; then
+		echo "ERROR: mounting tmpfs to /upper fail..." > /dev/kmsg;
+		exec /bin/bash;
+	fi
+	mkdir /upper/data /upper/work
+	if [ $? -ne 0 ]; then
+		echo "ERROR: creating overlayfs dirs under /upper fail..." > /dev/kmsg;
+		exec /bin/bash;
+	fi
+
+}
+
+overlayfs_mount_root() {
+	local dev="${1}"
+
+	if [ "${overlayfs_enabled}" -eq 1 ]; then
+		overlayfs_premount
+		echo "Mounting overlayfs for root ${dev}..." > /dev/kmsg
+		mount -r "${dev}" /lower
+		if [ $? -ne 0 ]; then
+			echo "ERROR: mounting ${dev} as /lower fail..." > /dev/kmsg;
+			exec /bin/bash;
+		fi
+		mount -t overlay -o lowerdir=/lower,upperdir=/upper/data/,workdir=/upper/work \
+			overlay /mnt
+		if [ $? -ne 0 ]; then
+			echo "ERROR: mounting overlayfs fail..." > /dev/kmsg;
+			exec /bin/bash;
+		fi
+	else
+		mount "${dev}" /mnt/;
+		return $?
+	fi
+}
+
+echo "Starting L4T initial RAM disk" > /dev/kmsg;
+
+# Check the input from the tty_console:
+# If tty_console is not found, return directly.
+# If Enter is detected from tty_console, start the bash.
+# If Enter is not detected from tty_console in 30s, exit.
+process_console_input ()
+{
+	local tty_console="${1}"
+
+	# Check if ${tty_console} is in /proc/cmdline
+	local find_console=$(grep "console=${tty_console}" /proc/cmdline);
+
+	# Return if ${tty_console} is not found in /proc/cmdline or not found under /dev
+	if [ "${find_console}" = "" ] || [ ! -e "/dev/${tty_console}" ]; then
+		echo "No ${tty_console} is found" > /dev/kmsg;
+		return;
+	fi
+
+	# Check the tty_console input: start bash if Enter is input, or wait till timeout.
+	local timeout=30;
+	while [ ${timeout} -gt 0 ]; do
+		echo "${tty_console}: Press [ENTER] to start bash in ${timeout} seconds..." > /dev/kmsg;
+		if read -t 3 -s < "/dev/${tty_console}"; then
+			echo "Starting bash..." > /dev/kmsg;
+			exec /bin/bash;
+		else
+			timeout=$((timeout-3));
+		fi
+	done
+}
+
+# Try to read input from the tty console ttyTCU0.
+# If ttyTCU0 is not found, try to read input from the ttyAMA0.
+# If ttyAMA0 is not found, reboot the system.
+process_bash_reboot ()
+{
+	# Check input on ttyTCU0
+	process_console_input "ttyTCU0"
+
+	# Check input on ttyAMA0
+	process_console_input "ttyAMA0"
+
+	# Reboot if no input from both ttyTCU0 and ttyAMA0
+	echo "Rebooting system..." > /dev/kmsg;
+	reboot;
+}
+
+#Mount procfs, devfs, sysfs and debugfs
+mount -t proc proc /proc
+if [ $? -ne 0 ]; then
+	echo "ERROR: mounting proc fail..." > /dev/kmsg;
+	exec /bin/bash;
+fi;
+mount -t devtmpfs none /dev
+if [ $? -ne 0 ]; then
+	echo "ERROR: mounting dev fail..." > /dev/kmsg;
+	exec /bin/bash;
+fi;
+mount -t sysfs sysfs /sys
+if [ $? -ne 0 ]; then
+	echo "ERROR: mounting sys fail..." > /dev/kmsg;
+	exec /bin/bash;
+fi;
+mount -t debugfs none /sys/kernel/debug/
+if [ $? -ne 0 ]; then
+	echo "ERROR: mounting debugfs fail..." > /dev/kmsg;
+	exec /bin/bash;
+fi;
+
+# create reboot command based on sysrq-trigger
+if [ -e "/proc/sysrq-trigger" ]; then
+	echo -e "#!/bin/bash \necho b > /proc/sysrq-trigger;" > /sbin/reboot;
+	chmod 755 /sbin/reboot;
+fi;
+
+overlayfs_check
+
+dev_regex='root=\/dev\/[abcdefklmnpsv0-9]*'
+uuid_regex='root=PARTUUID=[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+ext4uuid_regex='root=UUID=[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+rootdev="$(cat /proc/cmdline | grep -oE "\<${dev_regex}|${uuid_regex}|${ext4uuid_regex}\>" | tail -1)"
+if [ "${rootdev}" != "" ]; then
+	if [[ "${rootdev}" =~ "UUID" ]]; then
+		rootdev=$(echo "${rootdev}" | sed -ne "s/root=\(.*\)/\1/p")
+	else
+		rootdev=$(echo "${rootdev}" | sed -ne "s/root=\/dev\/\(.*\)/\1/p")
+	fi
+	echo "Root device found: ${rootdev}" > /dev/kmsg;
+fi
+
+cd /usr/sbin;
+ln -s /bin/kmod depmod
+depmod -a
+cd /
+
+# nv-init-int.sh is available in INTERNAL build only.
+if [ -e "/nv-init-int.sh" ]; then
+	. /nv-init-int.sh
+fi
+
+if [[ "${rootdev}" == PARTUUID* ||  "${rootdev}" == nvme* || "${rootdev}" == sd* || "${rootdev}" == UUID* ]]; then
+	if [[ "${version}" != *5\.10* ]]; then
+		modprobe -v pcie-tegra194;
+		modprobe -v phy-tegra194-p2u;
+	fi
+	modprobe -v nvme;
+	modprobe -v typec
+	modprobe -v typec_ucsi
+	modprobe -v ucsi_ccg
+	modprobe -v tegra-xudc
+fi
+
+# Start fan speed control which is required for all kinds of root dev.
+modprobe -v tegra-bpmp-thermal;
+modprobe -v pwm-tegra;
+modprobe -v pwm-fan;
+
+rootfs_is_encrypted=0
+run_cryptsetup="LD_LIBRARY_PATH=\"/lib/cryptsetup\" /lib/cryptsetup/ld-linux-aarch64.so.1 /sbin/cryptsetup "
+if [[ "${rootdev}" == PARTUUID* || "${rootdev}" == UUID* ]]; then
+	if [ -e "/etc/crypttab" ]; then
+		# Handle encrypted rootfs
+		ext4uuid_regex='root=UUID=[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+		encrootcmd="$(cat /proc/cmdline | grep -oE "\<${dev_regex}|${ext4uuid_regex}\>" | tail -1)";
+		rootext4uuid="$(echo ${encrootcmd} | awk -F "=" '{print $3}')";
+
+		# Get cryptsetup version
+		cryptsetup_version_str="$(eval ${run_cryptsetup} --version)";
+		cryptsetup_version="$(echo "${cryptsetup_version_str}" | awk -F " " '{print $2}')";
+		echo "Cryptsetup version: ${cryptsetup_version}" > /dev/kmsg;
+		while read crypttab_line
+		do
+			re_enc_chk="false";
+			re_enc_support="false";
+			enc_dm_name="$(echo "${crypttab_line}" | awk -F " " '{print $1}')";
+			crypt_dev="$(echo "${crypttab_line}" | awk -F " " '{print $2}')";
+			crypt_disk_uuid="$(echo "${crypt_dev}" | awk -F "=" '{print $2}')";
+			enc_dev_match_root=$(echo "${crypt_dev}" | grep -cE "${rootext4uuid}");
+
+			# Make sure device is ready
+			count=0;
+			enc_dev=;
+			while [ ${count} -lt 50 ]; do
+				enc_dev=$(blkid | grep -E "${crypt_disk_uuid}" | awk -F ":" '{print $1}');
+				if [ "${enc_dev}" != "" ]; then
+					break;
+				fi
+				sleep 0.2;
+				count="$((count + 1))";
+			done
+			if [ "${enc_dev}" == "" ]; then
+				echo "Warning: encrypted dev with UUID=${crypt_disk_uuid} is not found." > /dev/kmsg;
+				continue;
+			fi
+
+			# Check whether cryptsetup version is not 2.2.*
+			if [[ ${cryptsetup_version} != 2.2* ]]; then
+				re_enc_support="true";
+			fi
+
+			# isLuks
+			eval ${run_cryptsetup} isLuks "${enc_dev}";
+			if [ $? -ne 0 ]; then
+				echo "ERROR: encrypted dev ${enc_dev} is not LUKS device."; > /dev/kmsg;
+				exec /bin/bash;
+			fi
+
+			# Test the passphrase with the generic passphrase
+			nvluks-srv-app -g -c "${crypt_disk_uuid}" | eval ${run_cryptsetup} --test-passphrase luksOpen "${enc_dev}";
+			result=$?
+
+			# Replace generic passphrase with unique passphrase
+			if [ ${result} -eq 0 ]; then
+				nvluks-srv-app -g -c "${crypt_disk_uuid}" > /etc/pk
+				awk '{ printf "%s", $0 }' /etc/pk > /etc/npk
+
+				echo "Add unique key" > /dev/kmsg;
+				nvluks-srv-app -u -c "${crypt_disk_uuid}" | eval ${run_cryptsetup} luksAddKey --key-file "/etc/npk" "${enc_dev}";
+				result=$?
+
+				# Remove content of generic key file
+				echo $RANDOM > /etc/pk
+				echo $RANDOM > /etc/npk
+				if [ ${result} -ne 0 ]; then
+					echo "Failed to add unique key with ${result}" > /dev/kmsg;
+					exec /bin/bash;
+				fi
+
+				echo "Remove generic key..." > /dev/kmsg;
+				nvluks-srv-app -g -c "${crypt_disk_uuid}" | eval ${run_cryptsetup} luksRemoveKey "${enc_dev}";
+				result=$?
+				if [ ${result} -ne 0 ]; then
+					echo "Failed to remove generic key with ${result}" > /dev/kmsg;
+					exec /bin/bash;
+				fi
+
+				# Check if the disk needs to be re-encrypted
+				re_enc_chk="$(echo "${crypttab_line}" | awk -F " " '{print $3}')";
+			fi
+
+			# Unlock the encrypted dev
+			nvluks-srv-app -u -c "${crypt_disk_uuid}" | eval ${run_cryptsetup} luksOpen "${enc_dev}" "${enc_dm_name}";
+			if [ $? -ne 0 ]; then
+				echo "ERROR: fail to unlock the encrypted dev ${enc_dev}." > /dev/kmsg;
+				exec /bin/bash;
+			fi;
+
+			# Re-encrypt enc_dev to replace master key
+			if [ ${re_enc_chk} == "true" ]; then
+				echo "Re-encrypt ${enc_dev}... " > /dev/kmsg;
+				if [ ${re_enc_support} != "true" ]; then
+					echo "Error: Re-encrypt ${enc_dev} is not supported." > /dev/kmsg;
+					echo "Use cryptsetup version other than 2.2.*" > /dev/kmsg;
+				else
+					echo "Re-encryption may take 1 minute for every 1 GB of data ..." > /dev/kmsg;
+					nvluks-srv-app -u -c "${crypt_disk_uuid}" | eval ${run_cryptsetup} reencrypt "${enc_dev}";
+
+					echo "Re-encrypt done for ${enc_dev}" > /dev/kmsg;
+				fi
+			fi
+
+			if [ ${enc_dev_match_root} -eq 1 ] && [[ ! -z ${rootext4uuid} ]]; then
+				mount "/dev/mapper/${enc_dm_name}" /mnt/;
+				rootfs_is_encrypted=1
+			else
+				mount "/dev/mapper/${enc_dm_name}" "/mnt/mnt/${enc_dm_name}";
+			fi;
+		done < /etc/crypttab;
+	fi;
+
+	if [ ${rootfs_is_encrypted} -eq 0 ]; then
+		count=0;
+		while [ ${count} -lt 50 ]; do
+			sleep 0.2;
+			count="$(expr ${count} + 1)"
+
+			overlayfs_mount_root "${rootdev}"
+			if [ $? -eq 0 ]; then
+				break;
+			fi
+		done
+		mountpoint /mnt/;
+		if [ $? -ne 0 ]; then
+			echo "ERROR: ${rootdev} mount fail..." > /dev/kmsg
+			process_bash_reboot
+		fi;
+	fi;
+elif [[ "${rootdev}" == mmcblk* || "${rootdev}" == nvme* ]]; then
+	if [ ! -e "/dev/${rootdev}" ]; then
+		count=0;
+		while [ ${count} -lt 50 ]
+		do
+			sleep 0.2;
+			count=`expr $count + 1`;
+			if [ -e "/dev/${rootdev}" ]; then
+				break;
+			fi
+		done
+	fi
+	if [ -e "/dev/${rootdev}" ]; then
+			echo "Found dev node: /dev/${rootdev}" > /dev/kmsg;
+	else
+		echo "ERROR: ${rootdev} not found" > /dev/kmsg;
+		exec /bin/bash;
+	fi
+	overlayfs_mount_root "/dev/${rootdev}"
+	if [ $? -ne 0 ]; then
+		echo "ERROR: ${rootdev} mount fail..." > /dev/kmsg;
+		process_bash_reboot
+	fi;
+elif [[ "${rootdev}" == sd* ]]; then
+	if [ ! -e "/dev/${rootdev}" ]; then
+		count=0;
+		while [ ${count} -lt 50 ]
+		do
+			sleep 0.2;
+			count=`expr $count + 1`;
+			if [ -e "/dev/${rootdev}" ]; then
+				break;
+			fi
+		done
+	fi
+	if [ -e "/dev/${rootdev}" ]; then
+			echo "Found dev node: /dev/${rootdev}" > /dev/kmsg;
+	else
+		echo "ERROR: ${rootdev} not found" > /dev/kmsg;
+		exec /bin/bash;
+	fi
+	overlayfs_mount_root "/dev/${rootdev}"
+	if [ $? -ne 0 ]; then
+		echo "ERROR: ${rootdev} mount fail..." > /dev/kmsg;
+		process_bash_reboot
+	fi;
+elif [[ "${rootdev}" == "nfs" ]]; then
+	modprobe -v r8168
+	if [[ "${version}" != *5\.10* ]]; then
+		modprobe -v nvethernet
+		modprobe -v pcie-tegra194;
+		modprobe -v phy-tegra194-p2u;
+	fi
+	eth=`cat /proc/cmdline | sed 's/.* ip=\([a-z0-9.:]*\) .*/\1/' | awk -F ":" '{print $6}'`;
+	echo "Ethernet interfaces: $eth";
+	version="$(cat /proc/version)"
+	count=0;
+	while [ ${count} -lt 25 ]
+	do
+		sleep 0.2;
+		ipaddr=$(ifconfig "${eth}" 2>/dev/null | grep -A1 "${eth}" | grep "inet " | sed 's/.*addr:\([0-9\.]*\) .*/\1/;s/.*inet \([0-9\.]*\) .*/\1/');
+		if [[ "$ipaddr" =~ [0-9]*.[0-9]*.[0-9]*.[0-9]* ]]; then
+			echo "IP Address: $ipaddr" > /dev/kmsg;
+			break;
+		fi
+		count=`expr $count + 1`;
+	done
+	if [[ "$ipaddr" =~ [0-9]*.[0-9]*.[0-9]*.[0-9]* ]]; then
+		dhclient_flag="false";
+	else
+		ifconfig "${eth}" up
+		if [ $? -ne 0 ]; then
+			echo "ERROR: initrd: ifconfig fail..." > /dev/kmsg;
+			exec /bin/bash;
+		fi;
+		client_ip=`cat /proc/cmdline | sed 's/.* ip=\([a-z0-9.:]*\) .*/\1/' | awk -F ":" '{print $1}'`;
+		gateway_ip=`cat /proc/cmdline | sed 's/.* ip=\([a-z0-9.:]*\) .*/\1/' | awk -F ":" '{print $3}'`;
+		netmask=`cat /proc/cmdline | sed 's/.* ip=\([a-z0-9.:]*\) .*/\1/' | awk -F ":" '{print $4}'`;
+		if [[ -n "${client_ip}" && -n "${gateway_ip}" && -n "${netmask}" ]]; then
+			ifconfig "${eth}" "${client_ip}" netmask "${netmask}";
+			ip route add default via "${gateway_ip}" dev "${eth}";
+			if [ $? -ne 0 ]; then
+				echo "ERROR: initrd: ifconfig set ip fail..." > /dev/kmsg;
+				exec /bin/bash;
+			fi;
+		fi
+
+		count=0;
+		while [ ${count} -lt 50 ]
+		do
+			sleep 0.2;
+			ipaddr=$(ifconfig "${eth}" | grep -A1 "${eth}" | grep "inet " | sed 's/.*addr:\([0-9\.]*\) .*/\1/;s/.*inet \([0-9\.]*\) .*/\1/');
+			if [[ "$ipaddr" =~ [0-9]*.[0-9]*.[0-9]*.[0-9]* ]]; then
+				echo "IP Address: $ipaddr" > /dev/kmsg;
+				dhclient_flag="false";
+				break;
+			fi
+			count=`expr $count + 1`;
+		done
+	fi
+	if [ "$dhclient_flag" == "true" ]; then
+		timeout 8s /sbin/dhclient $eth;
+		if [ $? -ne 0 ]; then
+			echo "ERROR: dhclient fail..." > /dev/kmsg;
+			exec /bin/bash;
+		fi;
+	fi;
+
+	# Extract NFS root path and options from the kernel command line
+	nfsroot_path=$(cat /proc/cmdline | sed -e 's/.*nfsroot=\([^ ,]*\)[ ,].*/\1/')
+	nfsroot_opts=$(cat /proc/cmdline | sed -ne 's/.*nfsroot=\([^ ,]*\),\([^ ]*\).*/\2/p')
+
+	# Set default NFS options if none were provided
+	if [[ -z "${nfsroot_opts}" ]]; then
+	    nfsroot_opts="nolock"
+	fi
+
+	echo "######### HOSTNAME_PROC `cat /proc/sys/kernel/hostname`" &> /dev/kmsg	
+	echo "######### IFCONFIG `ifconfig`" &> /dev/kmsg	
+	ipaddr=$(ifconfig "${eth}" | grep -A1 "${eth}" | grep "inet " | sed 's/.*addr:\([0-9\.]*\) .*/\1/;s/.*inet \([0-9\.]*\) .*/\1/');
+	echo demo${ipaddr##*.} > /etc/hostname
+	echo "######### HOSTNAME_PROC `cat /proc/sys/kernel/hostname`" &> /dev/kmsg	
+	echo "######### HOSTNAME `cat /etc/hostname`" &> /dev/kmsg
+	echo "demo${ipaddr##*.}" > /proc/sys/kernel/hostname
+	echo "######### HOSTNAME_PROC `cat /proc/sys/kernel/hostname`" &> /dev/kmsg	
+
+	# Mount the NFS root filesystem as read-only
+	echo "Executing: mount -t nfs -o ro,${nfsroot_opts} ${nfsroot_path} /mnt/" > /dev/kmsg
+	mount -t nfs -o ro,${nfsroot_opts} ${nfsroot_path} /mnt/ &> /dev/kmsg
+	if [ $? -ne 0 ]; then
+	    echo "ERROR: NFS mount of root filesystem failed..." > /dev/kmsg
+	    exec /bin/bash
+	fi
+
+	# Retrieve the MAC address of the primary network interface
+	MAC_ADDRESS=$(cat /sys/class/net/eth0/address)
+	if [ $? -ne 0 ] || [[ -z "${MAC_ADDRESS}" ]]; then
+	    echo "ERROR: Failed to retrieve MAC address..." > /dev/kmsg
+	    exec /bin/bash
+	fi
+	MAC_DIR=${MAC_ADDRESS//:/-}
+
+	# Mount client-specific /var and /etc as writable
+	echo "Executing: mount -t nfs -o rw,${nfsroot_opts} ${nfsroot_path}/srv/nfs_client_dirs/${MAC_DIR}/var /mnt/var" > /dev/kmsg
+	mount -t nfs -o rw,${nfsroot_opts} "${nfsroot_path}/srv/nfs_client_dirs/${MAC_DIR}/var" /mnt/var &> /dev/kmsg
+	if [ $? -ne 0 ]; then
+	    echo "ERROR: mount of /var failed..." > /dev/kmsg
+	    exec /bin/bash
+	fi
+
+	echo "Executing: mount -t nfs -o rw,${nfsroot_opts} ${nfsroot_path}/srv/nfs_client_dirs/${MAC_DIR}/etc /mnt/etc" > /dev/kmsg
+	mount -t nfs -o rw,${nfsroot_opts} "${nfsroot_path}/srv/nfs_client_dirs/${MAC_DIR}/etc" /mnt/etc &> /dev/kmsg
+	if [ $? -ne 0 ]; then
+	    echo "ERROR: mount of /etc failed..." > /dev/kmsg
+	    exec /bin/bash
+	fi
+	
+	echo "Executing: mount -t nfs -o rw,${nfsroot_opts} ${nfsroot_path}/srv/nfs_client_dirs/${MAC_DIR}/tmp /mnt/tmp" > /dev/kmsg
+	mount -t nfs -o rw,${nfsroot_opts} "${nfsroot_path}/srv/nfs_client_dirs/${MAC_DIR}/tmp" /mnt/tmp &> /dev/kmsg
+	if [ $? -ne 0 ]; then
+	    echo "ERROR: mount of /tmp failed..." > /dev/kmsg
+	    exec /bin/bash
+	fi
+
+	# Mount /home with read/write permissions and no locking
+	echo "Executing: mount -t nfs -o rw,nolock,${nfsroot_opts} ${nfsroot_path}/home /mnt/home" > /dev/kmsg
+	mount -t nfs -o rw,${nfsroot_opts} ${nfsroot_path}/home /mnt/home/ &> /dev/kmsg
+	if [ $? -ne 0 ]; then
+	    echo "ERROR: NFS mount of /home failed..." > /dev/kmsg
+	    exec /bin/bash
+	fi
+
+else
+	echo "No root-device: Mount failed" > /dev/kmsg
+	exec /bin/bash;
+fi
+
+# Handle LUKS partition unique password replacement
+luks_table="opt/nvidia/cryptluks"
+if [ -e "/mnt/${luks_table}" ]; then
+	# To support external storage connected by USB
+	if ! modprobe -v tegra-xudc; then
+		echo "Fail to probe tegra-xudc driver" > /dev/kmsg;
+	fi
+
+	while read cryptluks_line
+	do
+		ext_dev="$(echo "${cryptluks_line}" | awk -F " " '{print $1}')";
+		enc_dm_name="$(echo "${cryptluks_line}" | awk -F " " '{print $2}')";
+		crypt_dev="$(echo "${cryptluks_line}" | awk -F " " '{print $3}')";
+		crypt_disk_uuid="$(echo "${crypt_dev}" | awk -F "=" '{print $2}')";
+		disk_format="$(echo "${cryptluks_line}" | awk -F " " '{print $4}')";
+
+		# Wait for device mount
+		count=0;
+		while [ ${count} -lt 50 ]; do
+			enc_dev=$(blkid | grep -E "${ext_dev}" | awk -F ":" '{print $1}');
+			if [[ ! -z ${enc_dev} ]]; then
+				break;
+			fi
+			sleep 0.2;
+			count="$((count + 1))";
+		done
+		if [ ${count} -ge 50 ]; then
+			echo "ERROR: external device ${ext_dev} can't be mounted correctly" > /dev/kmsg;
+			continue;
+		fi
+
+		# isLuks
+		eval ${run_cryptsetup} isLuks "${enc_dev}";
+		is_luks=$?
+		# The partition is not a LUKS partition and need to do luksFormat
+		if [ ${is_luks} -ne 0 ]; then
+			# Wait for luks format done
+			count=0;
+			while [ ${count} -lt 50 ]; do
+				# luksFormat with unique key
+				nvluks-srv-app -u -c "${crypt_disk_uuid}" | eval ${run_cryptsetup} --uuid ${crypt_disk_uuid} luksFormat "${enc_dev}";
+				if [ $? -eq 0 ]; then
+					break;
+				fi
+				sleep 0.2;
+				count="$((count + 1))";
+			done
+			if [ ${count} -ge 50 ]; then
+				echo "ERROR: device ${enc_dev} can't be formatted" > /dev/kmsg;
+				continue;
+			fi
+		fi
+
+		# luksOpen with unique password
+		nvluks-srv-app -u -c "${crypt_disk_uuid}" | eval ${run_cryptsetup} luksOpen "${enc_dev}" "${enc_dm_name}";
+		if [ $? -ne 0 ]; then
+			echo "ERROR: fail to unlock the encrypted dev ${enc_dev}." > /dev/kmsg;
+			continue;
+		fi;
+
+		# The partition is newly added into LUKS format and need to be formatted before mounting
+		if [[ ${is_luks} -ne 0 ]]; then
+			if [[ ${disk_format} == "ext4" ]]; then
+				LD_LIBRARY_PATH="/mnt/lib/aarch64-linux-gnu" \
+					/lib/cryptsetup/ld-linux-aarch64.so.1 \
+					/sbin/mkfs.ext4 "/dev/mapper/${enc_dm_name}";
+				if [ $? -ne 0 ]; then
+					echo "ERROR: format /dev/mapper/${enc_dm_name} into ext4 failed." > /dev/kmsg;
+					continue;
+				fi
+			else
+				# No need to do format and mount here if disk type is not ext4
+				# This provides flexibility to user to create other disk type
+				continue;
+			fi
+		fi
+
+		mkdir -p "/mnt/mnt/${enc_dm_name}";
+		mount "/dev/mapper/${enc_dm_name}" "/mnt/mnt/${enc_dm_name}";
+	done < /mnt/${luks_table};
+fi;
+
+# Disable luks-srv TA
+nvluks-srv-app -n > /dev/null 2>&1;
+
+echo "Rootfs mounted over ${rootdev}" > /dev/kmsg;
+mount -o bind /proc /mnt/proc;
+mount -o bind /sys /mnt/sys;
+mount -o bind /dev/ /mnt/dev;
+cp /etc/resolv.conf /mnt/etc/resolv.conf
+cd /mnt;
+
+
+echo "Switching from initrd to actual rootfs" > /dev/kmsg;
+mount --move . /
+exec chroot . /sbin/init 2;

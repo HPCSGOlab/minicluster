@@ -1,1 +1,6 @@
-/ *(async,rw,no_root_squash,no_all_squash,no_subtree_check,insecure,anonuid=1000,anongid=1000)
+# Root exported read-only
+/ 192.168.0.0/24(rw,async,no_root_squash,no_all_squash,no_subtree_check,insecure,anonuid=1000,anongid=1000)
+
+# Home directory exported read-write
+/home 192.168.0.0/24(rw,async,no_root_squash,no_all_squash,no_subtree_check,insecure,anonuid=1000,anongid=1000)
+
