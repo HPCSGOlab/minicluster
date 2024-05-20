@@ -38,6 +38,28 @@ echo "127.0.0.1 localhost" > ${ETC_DIR}/hosts
 echo "127.0.1.1 ${HOSTNAME}" >> ${ETC_DIR}/hosts
 
 echo -e "[Time]\nNTP=192.168.0.10" > ${ETC_DIR}/systemd/timesyncd.conf
+cat << 'EOF' > ${ETC_DIR}/ntp.conf
+# Local Network NTP Server
+server 192.168.0.10 iburst
+
+# Use local clock if no external sync available
+server 127.127.1.0
+fudge 127.127.1.0 stratum 10
+
+# Drift file
+driftfile /var/lib/ntp/ntp.drift
+
+# Logging
+logfile /var/log/ntp.log
+
+# Access control
+restrict default nomodify notrap nopeer noquery
+restrict 127.0.0.1
+restrict ::1
+restrict 192.168.0.10 mask 255.255.255.255 nomodify notrap nopeer
+EOF
+
+
 
 # Disable TFTP and DHCP servers on the client by removing symlinks
 rm -f ${ETC_DIR}/systemd/system/multi-user.target.wants/isc-dhcp-server.service
