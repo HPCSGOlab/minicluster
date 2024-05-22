@@ -1,0 +1,23 @@
+Current Verison: Jetpack 36.3/jetson_36.3
+
+This is intended to setup a head node of the cluster automatically. The entire directory structure is used.
+Generally, just run setup.sh in this directory. It will attempt to establish networking automatically, but
+networking is required for setup to complete. This should only matter if you provide these files offline; otherwise, you would have to set up the network to git clone anyway. 
+
+Fundamentally, these clusters are driven by 4 primary services:
+1) DHCP - ip addressing; also drives client-specific configuration using DHCP hooks
+2) NFS - shared file system
+3) TFTP - allows pxe boot into OS
+4) NTP - NFS and other things will not work without this. Clients get time from the head node over ntp.
+
+DHCP does most of the hard work; it creates temporary file system directories for the systems to boot off of
+when the client first connects. Changes to client file system layout have to take place in the dhcp hooks.
+
+setup.sh attempts to set up all these services correctly and simultaneously. 
+Additionally, we:
+
+1) Use a custom init, to ensure proper mounting
+2) use a custome kernel, so we can use NFS 4.
+
+setup.sh does both of these steps automagically; if we want to upgrade the version of jetpack, script modifications must be made.
+
