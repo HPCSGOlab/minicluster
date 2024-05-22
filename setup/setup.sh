@@ -3,17 +3,6 @@
 DLNAME=jetson_linux_r36.3.0_aarch64.tbz2
 OD=`pwd`
 
-# this will do apt update
-sudo unminimize
-
-sudo apt install -y build-essential bc libdwarf libncurses-dev vim htop locate libssl-dev nfs-kernel-server tftpd-hpa  isc-dhcp-server ntp
-sudo systemctl enable nfs-kernel-server tftpd-hpa isc-dhcp-server  NetworkManager-wait-online.service ntp
-sudo updatedb
-
-sudo mkdir /etc/exports.d
-
-sudo systemctl restart nfs-kernel-server tftpd-hpa isc-dhcp-server  NetworkManager-wait-online.service ntp
-
 # KERNEL
 # this is  for jetpack 36.3. Will have to update this script in the future if we want to support future jetpacks; not sure
 # how consistent the naming conventions are
@@ -42,6 +31,16 @@ cp ../init root/
 find . | sudo cpio -o -H newc | sudo gzip -9 > ${OD}/root/srv/tftp/initrd
 cd $OD
 
+# this will do apt update
+sudo unminimize
+
+sudo apt install -y build-essential bc libdwarf libncurses-dev vim htop locate libssl-dev nfs-kernel-server tftpd-hpa  isc-dhcp-server ntp
+sudo systemctl enable nfs-kernel-server tftpd-hpa isc-dhcp-server  NetworkManager-wait-online.service ntp
+sudo updatedb
+
+sudo mkdir /etc/exports.d
+
+sudo systemctl restart nfs-kernel-server tftpd-hpa isc-dhcp-server  NetworkManager-wait-online.service ntp
 
 
 # copy configs over
