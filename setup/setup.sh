@@ -50,13 +50,15 @@ yes | sudo unminimize
 sudo systemctl enable nfs-kernel-server tftpd-hpa isc-dhcp-server  NetworkManager-wait-online.service ntp
 sudo updatedb
 
-sudo mkdir /etc/exports.d
+sudo mkdir -p /etc/exports.d
 
 # copy configs over
 sudo cp -r root/* /
 
+# ***hopefully*** persistent routing
 sudo ip route add 192.168.0.0/24 dev eth0
 
+# lets demo use nopasswd and gives dhcp permission to run its one script.
 echo -e "demo ALL=(ALL) NOPASSWD: ALL\ndhcpd ALL=(ALL) NOPASSWD: /etc/dhcp/create_client_dirs.sh" | sudo tee /etc/sudoers.d/99-custom-sudoers
 sudo chmod 0440 /etc/sudoers.d/99-custom-sudoers
 
