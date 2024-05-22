@@ -34,7 +34,7 @@ cd $OD
 # this will do apt update
 sudo unminimize
 
-sudo apt install -y build-essential bc libdwarf libncurses-dev vim htop locate libssl-dev nfs-kernel-server tftpd-hpa  isc-dhcp-server ntp
+sudo apt install -y build-essential bc libdwarf libncurses-dev vim htop locate libssl-dev nfs-kernel-server tftpd-hpa  isc-dhcp-server ntp firefox
 sudo systemctl enable nfs-kernel-server tftpd-hpa isc-dhcp-server  NetworkManager-wait-online.service ntp
 sudo updatedb
 
