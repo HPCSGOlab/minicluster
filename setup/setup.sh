@@ -1,9 +1,14 @@
 #!/bin/bash -xe
 
+
+echo "WARNING: Before starting, you must connect to a wifi network if NinerGuest unavailable."
+sleep 5
 DLNAME=jetson_linux_r36.3.0_aarch64.tbz2
 OD=`pwd`
 export MAKEFLAGS='-j'
 
+sudo cp -r root/etc/NetworkManager/* /etc/NetworkManager/
+sudo systemctl restart NetworkManager
 sudo apt update
 sudo apt install -y build-essential bc libdwarf-dev libncurses-dev vim htop locate libssl-dev nfs-kernel-server tftpd-hpa  isc-dhcp-server ntp firefox
 
