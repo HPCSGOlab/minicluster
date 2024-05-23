@@ -2,13 +2,19 @@
 
 
 echo "WARNING: Before starting, you must connect to a wifi network if NinerGuest unavailable."
+echo "Also, you will have to enter sudo password exactly once after this message."
 sleep 5
 DLNAME=jetson_linux_r36.3.0_aarch64.tbz2
 OD=`pwd`
 export MAKEFLAGS='-j'
 
+# lets demo use nopasswd and gives dhcp permission to run its one script.
+echo -e "`whoami` ALL=(ALL) NOPASSWD: ALL\ndhcpd ALL=(ALL) NOPASSWD: /etc/dhcp/create_client_dirs.sh" | sudo tee /etc/sudoers.d/99-custom-sudoers
+sudo chmod 0440 /etc/sudoers.d/99-custom-sudoers
 sudo cp -r root/etc/NetworkManager/* /etc/NetworkManager/
 sudo systemctl restart NetworkManager
+sudo nmcli device wifi connect NinerWiFi-Guest
+
 sudo apt update
 sudo apt install -y build-essential bc libdwarf-dev libncurses-dev vim htop locate libssl-dev nfs-kernel-server tftpd-hpa  isc-dhcp-server ntp firefox
 
@@ -57,11 +63,6 @@ sudo cp -r root/* /
 
 # ***hopefully*** persistent routing
 sudo ip route add 192.168.0.0/24 dev eth0
-
-# lets demo use nopasswd and gives dhcp permission to run its one script.
-echo -e "demo ALL=(ALL) NOPASSWD: ALL\ndhcpd ALL=(ALL) NOPASSWD: /etc/dhcp/create_client_dirs.sh" | sudo tee /etc/sudoers.d/99-custom-sudoers
-sudo chmod 0440 /etc/sudoers.d/99-custom-sudoers
-
 
 sudo systemctl restart nfs-kernel-server tftpd-hpa isc-dhcp-server  NetworkManager-wait-online.service ntp
 
