@@ -1,19 +1,24 @@
 #!/bin/bash -xe
 
-
-echo "WARNING: Before starting, you must connect to a wifi network if NinerGuest unavailable."
-echo "Also, you will have to enter sudo password exactly once after this message."
-sleep 5
-DLNAME=jetson_linux_r36.3.0_aarch64.tbz2
+MAJOR=36
+MINOR=3
+REV=0
+GIT_TAG=jetson_${MAJOR}.${MINOR}
+DLNAME=jetson_linux_r${MAJOR}.${MINOR}.${REV}_aarch64.tbz2
 OD=`pwd`
 export MAKEFLAGS='-j'
+
+echo "Starting system setup for Jetson Orin Nano - Jetpack Version ${MAJOR}.${MINOR}.${REV}."
+echo "Update environment variables in this script to try a new version (untested)."
+echo "Do not run this script as root."
+echo "You will have to enter sudo password exactly once after this message."
+echo "WARNING: Before starting, you must connect to a WiFi network; Eduroam is sufficient, NinerGuest is not."
+sleep 10
 
 # lets demo use nopasswd and gives dhcp permission to run its one script.
 echo -e "`whoami` ALL=(ALL) NOPASSWD: ALL\ndhcpd ALL=(ALL) NOPASSWD: /etc/dhcp/create_client_dirs.sh" | sudo tee /etc/sudoers.d/99-custom-sudoers
 sudo chmod 0440 /etc/sudoers.d/99-custom-sudoers
 sudo cp -r root/etc/NetworkManager/* /etc/NetworkManager/
-sudo systemctl restart NetworkManager
-sudo nmcli device wifi connect NinerWiFi-Guest
 
 sudo apt update
 sudo apt install -y build-essential bc libdwarf-dev libncurses-dev vim htop locate libssl-dev nfs-kernel-server tftpd-hpa  isc-dhcp-server ntp firefox
@@ -31,14 +36,14 @@ cd $OD
 # KERNEL
 # this is  for jetpack 36.3. Will have to update this script in the future if we want to support future jetpacks; not sure
 # how consistent the naming conventions are
-dl_url=https://developer.nvidia.com/downloads/embedded/l4t/r36_release_v3.0/release/${DLNAME}
+dl_url=https://developer.nvidia.com/downloads/embedded/l4t/r${MAJOR}_release_v${MINOR}.${REV}/release/${DLNAME}
 
 if [[ ! -f ${DLNAME} ]]; then
 	wget ${dl_url}
 fi
 tar xvf ${DLNAME}
 cd Linux_for_Tegra/source
-printf "jetson_36.3\njetson_36.3\n" | ./source_sync.sh
+printf "${GIT_TAG}\n${GIT_TAG}\n" | ./source_sync.sh
 
 cp ${OD}/kernel/.config kernel/kernel-jammy-src/
 cp ${OD}/kernel/Makefile kernel/
