@@ -1,11 +1,12 @@
 #!/bin/bash -xe
 
+OD=`pwd`
 MAJOR=36
 MINOR=3
 REV=0
 GIT_TAG=jetson_${MAJOR}.${MINOR}
 DLNAME=jetson_linux_r${MAJOR}.${MINOR}.${REV}_aarch64.tbz2
-OD=`pwd`
+dl_url=https://developer.nvidia.com/downloads/embedded/l4t/r${MAJOR}_release_v${MINOR}.${REV}/release/${DLNAME}
 export MAKEFLAGS='-j'
 
 echo "Starting system setup for Jetson Orin Nano - Jetpack Version ${MAJOR}.${MINOR}.${REV}."
@@ -34,10 +35,6 @@ sudo find . | sudo cpio -o -H newc | sudo gzip -9 > ${OD}/root/srv/tftp/initrd
 cd $OD
 
 # KERNEL
-# this is  for jetpack 36.3. Will have to update this script in the future if we want to support future jetpacks; not sure
-# how consistent the naming conventions are
-dl_url=https://developer.nvidia.com/downloads/embedded/l4t/r${MAJOR}_release_v${MINOR}.${REV}/release/${DLNAME}
-
 if [[ ! -f ${DLNAME} ]]; then
 	wget ${dl_url}
 fi
@@ -55,12 +52,11 @@ sudo ./nvbuild.sh -i
 cp /boot/Image ${OD}/root/srv/tftp/Image
 cd $OD
 
-
-# this will do apt update
+# Add man pages back
 yes | sudo unminimize
 sudo systemctl enable nfs-kernel-server tftpd-hpa isc-dhcp-server  NetworkManager-wait-online.service ntp
-sudo updatedb
 
+# NFS 
 sudo mkdir -p /etc/exports.d
 
 # copy configs over
@@ -69,6 +65,9 @@ sudo cp -r root/* /
 # ***hopefully*** persistent routing
 sudo ip route add 192.168.0.0/24 dev eth0
 
+# check services work
 sudo systemctl restart nfs-kernel-server tftpd-hpa isc-dhcp-server  NetworkManager-wait-online.service ntp
+# index files for search later
+sudo updatedb
 
 echo "Finished setup without errors. Reboot to reflect changes..."
