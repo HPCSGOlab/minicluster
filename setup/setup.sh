@@ -19,9 +19,7 @@ sleep 10
 # lets demo use nopasswd and gives dhcp permission to run its one script.
 echo -e "`whoami` ALL=(ALL) NOPASSWD: ALL\ndhcpd ALL=(ALL) NOPASSWD: /etc/dhcp/create_client_dirs.sh" | sudo tee /etc/sudoers.d/99-custom-sudoers
 sudo chmod 0440 /etc/sudoers.d/99-custom-sudoers
-nmcli con mod eth0 ipv4.addresses 192.168.0.10/24 ipv4.method manual
-nmcli con down eth0
-nmcli con up eth0
+nmcli con mod 'Wired connection 1' ifname eth0 ipv4.addresses 192.168.0.10/24 ipv4.method manual
 
 # ***hopefully*** persistent routing
 sudo ip route add 192.168.0.0/24 dev eth0
@@ -66,6 +64,8 @@ sudo mkdir -p /etc/exports.d
 
 # copy configs over
 sudo cp -r root/* /
+sudo chown dhcpd:dhcpd /etc/dhcp/create_client_dirs_wrapper.sh
+sudo chmod 744 /etc/dhcp/create_client_dirs_wrapper.sh /etc/dhcp/create_client_dirs.sh
 
 # check services work
 sudo systemctl restart nfs-kernel-server tftpd-hpa isc-dhcp-server  NetworkManager-wait-online.service ntp
