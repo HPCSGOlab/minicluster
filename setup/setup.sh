@@ -25,7 +25,7 @@ nmcli con mod 'Wired connection 1' ifname eth0 ipv4.addresses 192.168.0.10/24 ip
 sudo ip route add 192.168.0.0/24 dev eth0
 
 sudo apt update
-sudo apt install -y build-essential bc libdwarf-dev libncurses-dev vim htop locate libssl-dev nfs-kernel-server tftpd-hpa  isc-dhcp-server ntp firefox
+sudo apt install -y build-essential bc libdwarf-dev libncurses-dev vim htop locate libssl-dev nfs-kernel-server tftpd-hpa  isc-dhcp-server ntp firefox mpich libglew-dev libglfw3-dev libfreetype-dev libxxf86vm-dev libxi-dev
 
 #INITRD
 cd initrd
