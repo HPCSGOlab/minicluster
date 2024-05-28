@@ -72,4 +72,7 @@ sudo systemctl restart nfs-kernel-server tftpd-hpa isc-dhcp-server  NetworkManag
 # index files for search later
 sudo updatedb
 
+# docker screws up mpi; can fix later maybe
+sudo systemctl disable docker
+
 echo "Finished setup without errors. Reboot to reflect changes..."

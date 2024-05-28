@@ -60,6 +60,9 @@ restrict 192.168.0.10 mask 255.255.255.255 nomodify notrap nopeer
 EOF
 
 
+# set clients to only hit the multi-user target; no need for graphical interface.
+rm -f ${ETC_DIR}/systemd/system/default.target
+ln -s  /lib/systemd/system/multi-user.target /etc/systemd/system/default.target 
 
 # Disable TFTP and DHCP servers on the client by removing symlinks
 rm -f ${ETC_DIR}/systemd/system/multi-user.target.wants/isc-dhcp-server.service
